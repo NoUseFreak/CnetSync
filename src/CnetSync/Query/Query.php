@@ -40,6 +40,12 @@ class Query implements \Iterator
     protected $throttleTime;
 
     /**
+     * The maximum number of retries for fetching the xml.
+     * @var int
+     */
+    protected $maxRetries;
+
+    /**
      * @param Configuration $config
      */
     public function __construct(Configuration $config)
@@ -47,6 +53,7 @@ class Query implements \Iterator
         $this->config = $config;
         $this->page = 0;
         $this->throttleTime = 1;
+        $this->maxRetries = 3;
     }
 
     /**
@@ -62,7 +69,7 @@ class Query implements \Iterator
             $tries = 1;
             $xml = simplexml_load_file($this->buildUrl());
 
-            while ($xml === false && $tries <=3) {
+            while ($xml === false && $tries <= $this->maxRetries) {
                 $tries++;
                 sleep($this->throttleTime);
                 $xml = simplexml_load_file($this->buildUrl());
