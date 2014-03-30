@@ -10,6 +10,7 @@
 namespace CnetSync\Query;
 
 use CnetSync\Configuration\Configuration;
+use CnetSync\Exception\NoXmlException;
 
 /**
  * @author Dries De Peuter <dries@nousefreak.be>
@@ -32,25 +33,46 @@ class Query implements \Iterator
     protected $page;
 
     /**
+     * The amount of seconds to wait before retrying a request to Cultuurnet.
+     *
+     * @var int
+     */
+    protected $throttleTime;
+
+    /**
      * @param Configuration $config
      */
     public function __construct(Configuration $config)
     {
         $this->config = $config;
         $this->page = 0;
+        $this->throttleTime = 1;
     }
 
     /**
      * Load the items
      *
      * @return bool
+     * @throws \CnetSync\Exception\NoXmlException
      */
     protected function loadItems()
     {
         try {
             //TODO use guzzle
+            $tries = 1;
             $xml = simplexml_load_file($this->buildUrl());
 
+            while ($xml === false && $tries <=3) {
+                $tries++;
+                sleep($this->throttleTime);
+                $xml = simplexml_load_file($this->buildUrl());
+            }
+
+            if ($xml === false) {
+                throw new NoXmlException();
+            }
+
+            $this->page++;
             $this->result = \CultureFeed_Cdb_List_Results::parseFromCdbXml($xml);
         } catch (\Exception $e) {
 
@@ -61,14 +83,12 @@ class Query implements \Iterator
 
     /**
      * Build the api call url
-     * NOTE: Calling this method will increase the page by one every call.
      *
      * @return string
      */
     public function buildUrl()
     {
         $page = $this->page;
-        $this->page++;
 
         return $this->config->buildApiUrl($page);
     }
